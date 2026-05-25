@@ -27,3 +27,6 @@ sibling(X, Y) :-
 member(X, [X|_]).
 member(X, [_|T]) :-
     member(X, T).
+revertrevertrevert
+
+revertrevert
