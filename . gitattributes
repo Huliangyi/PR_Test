@@ -1,1 +1,2 @@
-*.abcd linguist-language=CUDA
+
+*.abcd linguist-detectable=true linguist-language=CUDA
