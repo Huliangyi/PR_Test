@@ -1,3 +1,42 @@
+# MPE 插件功能测试文档
+
+> 本案例涵盖了 MPE 的主要特色：目录生成、数学公式、流程图/时序图、代码块运行、幻灯片模式以及导出功能。
+
+[TOC]
+
+## 1. 数学公式（LaTeX）
+
+MPE 支持行内公式和块级公式。
+
+**行内公式**：质能方程 \( E = mc^2 \) 是一个简单的例子。
+
+**块级公式**：
+$$
+\int_{-\infty}^{\infty} e^{-x^2} dx = \sqrt{\pi}
+$$
+
+**多行对齐**：
+$$
+\begin{aligned}
+\nabla \cdot \mathbf{E} &= \frac{\rho}{\varepsilon_0} \\
+\nabla \times \mathbf{E} &= -\frac{\partial \mathbf{B}}{\partial t}
+\end{aligned}
+$$
+
+## 2. 图表绘制（Mermaid）
+
+### 流程图
+```mermaid
+graph TD
+    A[用户输入] --> B{MPE 是否安装？}
+    B -- 是 --> C[正常渲染图表]
+    B -- 否 --> D[提示安装插件]
+    C --> E[导出 PDF/HTML]
+    D --> F[结束]
+
+
+
+
 revertrevertr123123123123evertre1231vertrerevert
 revert
 revert
