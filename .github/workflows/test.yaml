@@ -1,1 +1,87 @@
-123123123
+name: Go dispatch
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment'
+        required: true
+        type: string
+
+env:
+  ENV_TEST: env_test
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: env_test01
+    env:
+      BUILD_ENV_TEST: ${{ vars.VAR_TEST01 }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Test
+        run: go test -v ./...
+
+      # go build -o <dir> ./... 要求至少一个 main 包；纯库（如 go-utils）会报 no main packages。
+      # 因此：始终打包元数据 + go.mod/go.sum；若有 main 包再额外写入 staging/bin/。
+      - name: Stage artifact contents
+        run: |
+          mkdir -p staging/bin
+          {
+            echo "environment=${{ inputs.environment }}"
+            echo "sha=${{ github.sha }}"
+            echo "run_id=${{ github.run_id }}"
+          } > staging/workflow-meta.txt
+          cp go.mod staging/
+          [ -f go.sum ] && cp go.sum staging/
+          if go build -v -o staging/bin/ ./...; then
+            echo "main_packages=true" >> staging/workflow-meta.txt
+          else
+            echo "main_packages=false" >> staging/workflow-meta.txt
+            echo "Library-only module: no binaries staged (go build ./... already passed above)."
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: go-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: staging/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Test echo
+        run: echo "Deploying to ${{ inputs.environment }}"
+
+      - name: test env
+        run: echo "Env test var ${{ vars.VAR_TEST01 }} env $ENV_TEST $BUILD_ENV_TEST"
+
+  verify-artifact:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: go-build-${{ github.run_id }}-${{ github.run_attempt }}
+          path: downloaded
+
+      - name: List downloaded artifact
+        run: ls -laR downloaded
+
+      - name: Sanity check (non-empty artifact)
+        run: |
+          count=$(find downloaded -type f | wc -l)
+          if [ "$count" -lt 1 ]; then
+            echo "No files in artifact (staging may be empty for this module layout)"
+            exit 1
+          fi
+          echo "Artifact contains $count file(s)"
