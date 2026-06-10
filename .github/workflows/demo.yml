@@ -1,0 +1,218 @@
+# ============================================================
+# 鸿蒙PC三方库交叉编译构建流水线
+# 基于 Ubuntu 环境搭建完整的交叉编译开发环境
+# ============================================================
+
+name: ohos-pkg-build
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+    inputs:
+      library:
+        description: '要构建的三方库名称（如：cups）'
+        required: false
+        default: 'cups'
+
+env:
+  WORK_DIR: /home/ohpkg
+  OHOS_SDK_VERSION: 6.0-Release
+  OHOS_SDK_URL: https://repo.huaweicloud.com/openharmony/os/6.0-Release/ohos-sdk-windows_linux-public.tar.gz
+
+jobs:
+  setup-environment:
+    name: 环境准备与SDK配置
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 安装基础编译工具
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gcc g++ \
+            cmake \
+            make \
+            pkg-config \
+            autoconf \
+            automake \
+            git git-lfs \
+            ninja-build \
+            unzip \
+            tree \
+            wget
+
+      - name: 创建工作目录
+        run: |
+          sudo mkdir -p ${{ env.WORK_DIR }}
+          sudo chown $USER:$USER ${{ env.WORK_DIR }}
+
+      - name: 下载OHOS SDK
+        run: |
+          cd ${{ env.WORK_DIR }}
+          wget ${{ env.OHOS_SDK_URL }}
+          ls -lh
+
+      - name: 解压OHOS SDK
+        run: |
+          cd ${{ env.WORK_DIR }}
+          tar -zxf ohos-sdk-windows_linux-public.tar.gz
+          tree -L 2
+
+      - name: 解压Native工具链
+        run: |
+          cd ${{ env.WORK_DIR }}/linux
+          # 查找并解压native工具链
+          NATIVE_ZIP=$(ls native-linux-x64-*.zip | head -n1)
+          if [ -n "$NATIVE_ZIP" ]; then
+            unzip -q "$NATIVE_ZIP"
+            echo "已解压: $NATIVE_ZIP"
+          fi
+          tree -L 2
+
+      - name: 配置环境变量
+        run: |
+          echo "OHOS_SDK=${{ env.WORK_DIR }}/linux" >> $GITHUB_ENV
+          echo "环境变量已配置: OHOS_SDK=${{ env.WORK_DIR }}/linux"
+
+      - name: 验证环境
+        run: |
+          echo "验证OHOS SDK目录结构:"
+          tree -L 2 ${{ env.WORK_DIR }}/linux
+          echo ""
+          echo "检查native目录:"
+          ls -la ${{ env.WORK_DIR }}/linux/native/ 2>/dev/null || echo "native目录不存在"
+
+  clone-lycium:
+    name: 克隆Lycium++框架
+    runs-on: ubuntu-latest
+    needs: setup-environment
+    
+    steps:
+      - name: 克隆lycium++仓库
+        run: |
+          cd /home
+          git clone https://gitcode.com/OpenHarmonyPCDeveloper/lycium_plusplus.git
+          cd lycium_plusplus
+          tree -L 2
+
+      - name: 检查lycium目录结构
+        run: |
+          cd /home/lycium_plusplus
+          echo "lycium核心目录:"
+          ls -la lycium/
+          echo ""
+          echo "三方库目录:"
+          ls -la thirdparty/ | head -20
+
+  build-library:
+    name: 构建三方库
+    runs-on: ubuntu-latest
+    needs: [setup-environment, clone-lycium]
+    
+    steps:
+      - name: 设置环境变量
+        run: |
+          echo "OHOS_SDK=${{ env.WORK_DIR }}/linux" >> $GITHUB_ENV
+
+      - name: 拉取PR代码到thirdparty目录
+        run: |
+          LIBRARY="${{ github.event.inputs.library || 'cups' }}"
+          echo "拉取PR代码到: /home/lycium_plusplus/thirdparty/$LIBRARY"
+          
+          # 检出当前PR的代码
+          cd /home
+          git clone ${{ github.event.pull_request.head.repo.clone_url || github.repository }} pr-repo
+          cd pr-repo
+          
+          # 切换到PR分支
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin ${{ github.event.pull_request.head.ref }}
+            git checkout ${{ github.event.pull_request.head.ref }}
+          else
+            git checkout ${{ github.sha }}
+          fi
+          
+          # 复制三方库适配文件到lycium的thirdparty目录
+          if [ -d "$LIBRARY" ]; then
+            cp -r $LIBRARY /home/lycium_plusplus/thirdparty/
+            echo "已复制 $LIBRARY 到 thirdparty 目录"
+          else
+            echo "警告: 未找到 $LIBRARY 目录，使用默认配置"
+          fi
+
+      - name: 构建指定三方库
+        run: |
+          cd /home/lycium_plusplus/lycium
+          LIBRARY="${{ github.event.inputs.library || 'cups' }}"
+          echo "开始构建: $LIBRARY"
+          ./build.sh $LIBRARY
+
+      - name: 检查构建产物
+        run: |
+          LIBRARY="${{ github.event.inputs.library || 'cups' }}"
+          echo "检查构建产物:"
+          ls -la /home/lycium_plusplus/lycium/usr/$LIBRARY/
+          echo ""
+          echo "各架构产物:"
+          tree -L 2 /home/lycium_plusplus/lycium/usr/$LIBRARY/
+
+      - name: 上传构建产物
+        uses: archive@01.00.00
+        with:
+          name: build-artifacts
+          path: |
+            /home/lycium_plusplus/lycium/usr
+            /home/lycium_plusplus/lycium/output
+
+  generate-hnp:
+    name: 生成HNP包（可选）
+    runs-on: ubuntu-latest
+    needs: build-library
+    
+    steps:
+      - name: 解压HNP工具链
+        run: |
+          cd ${{ env.WORK_DIR }}/linux
+          TOOLCHAIN_ZIP=$(ls toolchains-linux-x64-*.zip | head -n1)
+          if [ -n "$TOOLCHAIN_ZIP" ]; then
+            unzip -q "$TOOLCHAIN_ZIP"
+            echo "已解压工具链: $TOOLCHAIN_ZIP"
+          fi
+
+      - name: 配置HNP工具
+        run: |
+          echo "HNP_TOOL=${{ env.WORK_DIR }}/linux/toolchains/hnpcli" >> $GITHUB_ENV
+
+      - name: 生成HNP包
+        run: |
+          LIBRARY="${{ github.event.inputs.library || 'cups' }}"
+          cd /home/lycium_plusplus/lycium
+          # 如果HPKBUILD中包含archive函数，会自动生成HNP
+          ./build.sh $LIBRARY
+
+      - name: 检查HNP产物
+        run: |
+          echo "HNP产物目录:"
+          ls -la /home/lycium_plusplus/lycium/output/
+          echo ""
+          echo "各架构HNP包:"
+          find /home/lycium_plusplus/lycium/output -name "*.hnp" -o -name "*.tar.gz"
+
+  cleanup:
+    name: 清理工作目录
+    runs-on: ubuntu-latest
+    needs: [build-library, generate-hnp]
+    if: always()
+    
+    steps:
+      - name: 清理临时文件
+        run: |
+          sudo rm -rf ${{ env.WORK_DIR }} || true
+          echo "工作目录已清理"# ============================================================
