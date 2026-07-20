@@ -1,0 +1,50 @@
+name: Job Summary - 方式二 @actions/core 示例
+
+on:
+  workflow_dispatch:
+
+jobs:
+  summary-demo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 使用 @actions/core 生成 Summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const core = require('@actions/core');
+
+            await core.summary
+              .addHeading('📊 测试报告')
+              .addRaw('')
+              .addDetails('✅ 单元测试结果（共 12 项）', `
+            | 模块 | 通过 | 失败 | 耗时 |
+            |------|------|------|------|
+            | UserService | 12 | 0 | 1.2s |
+            | OrderService | 8 | 0 | 0.8s |
+            | PaymentService | 15 | 0 | 2.1s |
+            | NotificationService | 5 | 0 | 0.3s |
+            `)
+              .addRaw('')
+              .addDetails('🔍 代码检查结果', `
+            | 规则 | 文件 | 级别 |
+            |------|------|------|
+            | no-unused-vars | src/index.ts | ⚠️ Warning |
+            | no-console | src/debug.ts | ⚠️ Warning |
+            | prefer-const | src/utils.ts | ⚠️ Warning |
+            `)
+              .addRaw('')
+              .addDetails('🚀 部署详情', `
+            **目标环境**: production
+
+            **版本**: v2.1.0
+
+            **状态**: ✅ 部署成功
+
+            **访问地址**: https://app.example.com
+            `)
+              .write();
+
+      - name: 查看 Summary
+        run: |
+          echo "Job Summary 已生成，请查看页面上的渲染效果。"
+          echo "每个 <details> 区域默认收起，点击标题可展开查看详情。"
