@@ -1,0 +1,75 @@
+name: 功能建议
+description: 向我们提交一个新功能建议
+title: "[Feature]: "
+labels: ["enhancement"]
+assignees:
+  - octocat
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🎉 感谢你的建议！
+
+        在提交之前，请先查看我们的[功能请求列表](https://github.com/octo-org/octo-repo/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)，确认没有人提过类似的需求。
+
+        你也可以先阅读[贡献指南](https://github.com/octo-org/octo-repo/blob/main/CONTRIBUTING.md)了解更多。
+
+  - type: input
+    id: contact
+    attributes:
+      label: 联系方式
+      description: 你的邮箱地址，方便我们联系你（可选）。查看我们的[隐私政策](https://github.com/octo-org/octo-repo/security/policy)。
+      placeholder: ex. email@example.com
+    validations:
+      required: false
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 解决了什么问题？
+      description: 请描述你遇到的问题，例如：*"每次手动做 XXX 很麻烦"*。参考[这个示例](https://github.com/octo-org/octo-repo/issues/123)的写法。
+      placeholder: 描述你遇到的问题...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 期望的解决方案
+      description: 请描述你期望的方案，可以是文字描述或[原型链接](https://www.figma.com/file/xxx)。
+      placeholder: 描述你期望的功能...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 优先级
+      description: 你认为这个功能的重要程度？查看我们的[优先级定义](https://github.com/octo-org/octo-repo/wiki/Priority-Definitions)了解更多。
+      options:
+        - P0 - 紧急
+        - P1 - 高
+        - P2 - 中
+        - P3 - 低
+      default: 2
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: 确认事项
+      description: 提交即表示你同意我们的[行为准则](https://github.com/octo-org/octo-repo/blob/main/CODE_OF_CONDUCT.md)。
+      options:
+        - label: 我已搜索过现有 issues，没有重复
+          required: true
+        - label: 我同意遵守该项目的行为准则
+          required: true
+
+  - type: upload
+    id: screenshots
+    attributes:
+      label: 截图或附件
+      description: 如有设计稿或参考截图，请上传。也可附上外部链接：[Figma 设计稿](https://www.figma.com/file/xxx)。
+    validations:
+      required: false
